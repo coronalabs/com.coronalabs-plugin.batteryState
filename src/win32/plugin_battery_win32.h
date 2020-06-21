@@ -8,8 +8,7 @@
 #ifndef _PLUGIN_BATTERY_WIN32_H__
 #define _PLUGIN_BATTERY_WIN32_H__
 
-#include <Windows.h>
-#include <Powrprof.h>
+#include "windows.h"
 
 #include "CoronaLua.h"
 #include "CoronaMacros.h"
