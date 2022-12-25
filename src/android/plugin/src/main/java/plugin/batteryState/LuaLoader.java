@@ -108,14 +108,14 @@ public class LuaLoader implements JavaFunction, CoronaRuntimeListener {
 	}
 
 	@SuppressWarnings("unused")
-	public void dispatchEvent(final String message) {
+	public void dispatchEvent(final String message, final LuaState luaState) {
 
 		CoronaActivity activity = CoronaEnvironment.getCoronaActivity();
 		if (activity == null) {
 			return;
 		}
 
-		CoronaRuntimeTaskDispatcher rt = activity.getRuntimeTaskDispatcher();
+		CoronaRuntimeTaskDispatcher rt = new CoronaRuntimeTaskDispatcher(luaState);
 		if (rt == null) {
 			return;
 		}
@@ -175,7 +175,7 @@ public class LuaLoader implements JavaFunction, CoronaRuntimeListener {
 			fBroadcastReceiver = new BroadcastReceiver() {
 				@Override
 				public void onReceive(Context context, Intent battery) {
-					dispatchEvent(EVENT_NAME);
+					dispatchEvent(EVENT_NAME, L);
 				}
 			};
 

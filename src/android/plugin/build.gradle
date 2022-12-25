@@ -1,46 +1,72 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 25
-    buildToolsVersion '25.0.2'
+    compileSdkVersion 32
 
     defaultConfig {
         minSdkVersion 15
-        targetSdkVersion 25
+        targetSdkVersion 32
         versionCode 1
         versionName "1.0"
     }
-}
-
-def platform = "mac"
-if (System.properties['os.name'].toLowerCase().contains('windows'))
-{
-    platform = "win"
-}
-
-def coronaNativeDir = System.getProperty("user.home") + "/Library/Application Support/Corona/Native"
-if (platform == "win")
-{
-    coronaNativeDir = System.getenv("CORONA_ROOT")
-}
-
-task exportPluginJar (type: Copy, description: 'place the plugin JAR file in the outputs directory and give it a name from the AndroidManifest.xml') {
-    def pluginName = new XmlSlurper().parse(file('src/main/AndroidManifest.xml')).@package.text()
-    from "$buildDir/intermediates/bundles/default/"
-    into "$buildDir/outputs/jar"
-    include 'classes.jar'
-    rename 'classes.jar', "${pluginName}.jar"
-
-    doFirst {
-        println '== exportPluginJar =='
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
-}
 
-tasks.withType(JavaCompile) {
-    compileTask -> compileTask.dependsOn('exportPluginJar')
 }
 
 dependencies {
-    compile fileTree(dir: "$coronaNativeDir/Corona/android/lib/Corona/libs", include: '*.jar')
-    compile fileTree(dir: 'libs', include: '*.jar')
+    implementation ':Corona@aar'    
+}
+
+tasks.register("extractPluginJar") {
+    group "Solar2Dev"
+    dependsOn assembleRelease
+    doLast {
+        copy {
+            from {
+                zipTree("$buildDir/outputs/aar/${project.name}-release.aar").matching {
+                    include 'classes.jar'
+                }.singleFile
+            }
+            into "$buildDir/outputs/"
+            String packageName = new XmlSlurper().parse(file('src/main/AndroidManifest.xml')).@package.text()
+            rename "classes.jar", "${packageName}.jar"
+        }
+    }
+}
+
+// This creates archive for plugin so it can be used by Simulator from build.settings
+// by deploying it directly to Solar2DPlugins directory. This is first in line location
+// to retrieve plugins, so will overshadow online directory/store downloads.
+def providerId = 'com.solar2d'
+tasks.register("deployToLocalSolar2DRepo", Tar) {
+    group "Solar2Dev"
+
+    dependsOn assembleRelease
+
+    File pluginManifestFile = file("src/main/AndroidManifest.xml")
+    String manifestContents = pluginManifestFile.text
+    def pluginManifestXml = new XmlSlurper().parseText(manifestContents)
+    String packageName = pluginManifestXml.@package.toString()
+
+    compression = Compression.GZIP
+    archiveFileName = "data.tgz"
+    def rootS2DP
+    if(System.env.APP_DATA) {
+        rootS2DP = System.env.APP_DATA
+    } else {
+        rootS2DP = System.env.HOME
+    }
+    def dst = file("$rootS2DP/Solar2DPlugins/$providerId/$packageName/android")
+    destinationDirectory = dst
+
+    into("/") {
+        from("$buildDir/outputs/aar")
+        include("${project.name}-release.aar")
+    }
+    doLast {
+        println("\n\n\n== !!! IMPORTANT !!! ==\nMake sure to delete plugin when done: $dst\nThis plugin will override any Solar2Directory plugin, or plugin from any other source")
+    }
 }
